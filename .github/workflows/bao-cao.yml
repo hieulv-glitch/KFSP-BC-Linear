@@ -1,0 +1,89 @@
+name: Bao cao cong viec
+
+# Gio VN = UTC+7, khong lech ngay nen lich UTC va lich VN cung thu trong tuan.
+#   8:50  VN, thu Hai-Sau  ->  01:50 UTC, thu Hai-Sau  ("50 1 * * 1-5")
+#   18:00 VN, thu Hai-Sau  ->  11:00 UTC, thu Hai-Sau  ("0 11 * * 1-5")
+# GitHub co the chay tre vai phut vao gio cao diem, va tu tat lich neu kho
+# khong co commit nao trong 60 ngay — vao lai Actions bam Enable workflow.
+on:
+  schedule:
+    - cron: "50 1 * * 1-5"
+    - cron: "0 11 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      kieu:
+        description: "Ban bao cao"
+        required: true
+        type: choice
+        options:
+          - sang
+          - cuoi-ngay
+      thu:
+        description: "Chay thu — chi in ra, khong gui that"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bao-cao
+  cancel-in-progress: false
+
+jobs:
+  gui-bao-cao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Xac dinh ban bao cao va che do chay thu
+        id: kieu
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "co=${{ inputs.kieu }}" >> "$GITHUB_OUTPUT"
+            echo "thu=${{ inputs.thu }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "50 1 * * 1-5" ]; then
+            echo "co=sang" >> "$GITHUB_OUTPUT"
+            echo "thu=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "co=cuoi-ngay" >> "$GITHUB_OUTPUT"
+            echo "thu=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Chay bao_cao.py
+        env:
+          LINEAR_KEY: ${{ secrets.LINEAR_KEY }}
+          WEBHOOK: ${{ secrets.WEBHOOK }}
+          MODEL_URL: ${{ secrets.MODEL_URL }}
+          MODEL_KEY: ${{ secrets.MODEL_KEY }}
+          MODEL_TEN: ${{ secrets.MODEL_TEN }}
+        run: |
+          co_flag="--sang"
+          if [ "${{ steps.kieu.outputs.co }}" = "cuoi-ngay" ]; then
+            co_flag="--cuoi-ngay"
+          fi
+          thu_flag=""
+          if [ "${{ steps.kieu.outputs.thu }}" = "true" ]; then
+            thu_flag="--thu"
+          fi
+          python3 bao_cao.py $co_flag $thu_flag
+
+      # Chi luot gui THAT moi doi moc_tien_do.json — khop dung luat trong
+      # bao_cao.py (ghi_moc chi chay khi khong co --thu). Luu lai vao kho de
+      # lan chay sau (tren mot may ao GitHub moi, khong con file cu) van co
+      # moc de so chenh lech.
+      - name: Luu moc tien do vao kho
+        if: steps.kieu.outputs.thu != 'true'
+        run: |
+          git add moc_tien_do.json
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "moc tien do: cap nhat tu dong (${{ steps.kieu.outputs.co }})"
+            git push
+          fi
