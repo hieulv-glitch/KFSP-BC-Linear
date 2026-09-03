@@ -81,10 +81,12 @@ def tim_sprint(hom_nay):
 
 
 # ─────────── lay viec + binh luan trong MOT luot
+# Thanh chot 28/08: loc thang "unstarted" (Todo) ngay tai Linear bang filter,
+# khong keo binh luan cua viec Todo ve nua — do khong dung den chung.
 TRUY_VAN_VIEC = """
 query($c:String!){
   cycle(id:$c){
-    issues(first:200){
+    issues(first:200, filter:{state:{type:{neq:"unstarted"}}}){
       nodes{
         identifier title priority completedAt updatedAt
         state{ name type }
@@ -415,17 +417,17 @@ def dung_chu(kieu, bay_gio, viec, moc=None):
     # Thanh chot 14/08: doc CA BACKLOG. Viec nam Backlog ma co binh luan
     # trong vong 7 ngay la dau hieu co nguoi dang lam that, chi la quen keo
     # sang In Progress. Van dua vao bao cao, kem loi nhac keo trang thai.
+    # Rieng Todo (unstarted) KHONG doc, du co binh luan hay khong — Thanh
+    # chot 28/08: viec con o Todo la chua bat dau, chua can bao cao.
     dang_lam = []
     for v in viec:
         loai_tt = (v.get("state") or {}).get("type") or ""
         if loai_tt == "started":
             dang_lam.append(chuan_hoa(v))
-        elif loai_tt in ("backlog", "unstarted"):
+        elif loai_tt == "backlog":
             o = chuan_hoa(v)
             if o["moc_bl"] and (bay_gio - o["moc_bl"]) <= timedelta(days=7):
-                # Chi nhac keo trang thai khi viec that su con nam Backlog.
-                # Viec da o Todo la da chot lam tuan nay, khong nhac nua.
-                o["nhac_keo"] = loai_tt == "backlog"
+                o["nhac_keo"] = True
                 dang_lam.append(o)
 
     if kieu == "sang":
