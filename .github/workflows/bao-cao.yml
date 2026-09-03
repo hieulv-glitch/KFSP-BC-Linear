@@ -1,14 +1,9 @@
 name: Bao cao cong viec
 
-# Gio VN = UTC+7, khong lech ngay nen lich UTC va lich VN cung thu trong tuan.
-#   8:50  VN, thu Hai-Sau  ->  01:50 UTC, thu Hai-Sau  ("50 1 * * 1-5")
-#   18:00 VN, thu Hai-Sau  ->  11:00 UTC, thu Hai-Sau  ("0 11 * * 1-5")
-# GitHub co the chay tre vai phut vao gio cao diem, va tu tat lich neu kho
-# khong co commit nao trong 60 ngay — vao lai Actions bam Enable workflow.
+# Da tat GitHub Actions "schedule" (chay gio khong on dinh, co luc lech hang
+# gio). Lich chay dung gio 8:50 & 18:00 VN, thu Hai-Sau, gio do n8n dam nhiem
+# bang cach goi API workflow_dispatch ben duoi vao dung gio.
 on:
-  schedule:
-    - cron: "50 1 * * 1-5"
-    - cron: "0 11 * * 1-5"
   workflow_dispatch:
     inputs:
       kieu:
@@ -44,16 +39,8 @@ jobs:
       - name: Xac dinh ban bao cao va che do chay thu
         id: kieu
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "co=${{ inputs.kieu }}" >> "$GITHUB_OUTPUT"
-            echo "thu=${{ inputs.thu }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "50 1 * * 1-5" ]; then
-            echo "co=sang" >> "$GITHUB_OUTPUT"
-            echo "thu=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "co=cuoi-ngay" >> "$GITHUB_OUTPUT"
-            echo "thu=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "co=${{ inputs.kieu }}" >> "$GITHUB_OUTPUT"
+          echo "thu=${{ inputs.thu }}" >> "$GITHUB_OUTPUT"
 
       - name: Chay bao_cao.py
         env:
